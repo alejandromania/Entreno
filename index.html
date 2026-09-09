@@ -6,6 +6,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#12171A">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 <title>Entreno</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap');
@@ -90,6 +92,8 @@ padding:13px 0;color:var(--texto);font:inherit;cursor:pointer}
 font-size:9px;font-weight:600;padding:2px 5px;border-radius:2px;margin-left:6px}
 .vacio{text-align:center;color:var(--tenue);padding:44px 20px;font-size:14px;line-height:1.6}
 svg.graf{width:100%;height:auto;display:block}
+#login{position:fixed;inset:0;background:var(--fondo);z-index:100;display:none;align-items:center;justify-content:center;padding:24px}
+#login.on{display:flex}
 </style>
 </head>
 <body>
@@ -101,6 +105,14 @@ svg.graf{width:100%;height:auto;display:block}
 <div id="vista"></div>
 <div id="modal"><div class="hoja" id="hoja"></div></div>
 <nav id="nav"></nav>
+<div id="login">
+  <div style="width:100%;max-width:320px">
+    <p class="disp" style="font-size:28px;font-weight:700;margin-bottom:16px;text-align:center">Entreno</p>
+    <input type="password" id="loginPw" placeholder="Contraseña" autocomplete="current-password" style="margin-bottom:10px">
+    <button class="btn" id="loginBtn">Entrar</button>
+    <p class="mono" id="loginError" style="color:var(--rojo);font-size:11px;margin-top:10px;min-height:14px;text-align:center"></p>
+  </div>
+</div>
 
 <script>
 /* =====================================================================
@@ -432,9 +444,10 @@ function calcularRecords(ses){
 /* =====================================================================
    3. ESTADO
    ===================================================================== */
-const CLAVE="entreno:v6";
+const CLAVE="entreno:v6", CLAVE_PW="entreno:pw";
 let S={tab:"semana",subtab:"records",metrica:"peso",dias:4,inicioBloque:null,
-       sesiones:[],pesos:[],editando:null,borrador:null,aviso:"",cambiando:null};
+       sesiones:[],pesos:[],editando:null,borrador:null,aviso:"",cambiando:null,
+       sincEstado:"pendiente",sincFecha:null};
 function cargar(){
   try{ const d=JSON.parse(localStorage.getItem(CLAVE));
     if(d){ S.dias=d.dias||4; S.sesiones=d.sesiones||[]; S.pesos=d.pesos||[];
@@ -445,6 +458,81 @@ function guardar(){
   try{ localStorage.setItem(CLAVE,JSON.stringify({dias:S.dias,sesiones:S.sesiones,
     pesos:S.pesos,inicioBloque:S.inicioBloque})); }
   catch(e){ S.aviso="No se pudo guardar. Descarga una copia."; }
+  sincronizar();
+}
+
+/* --- Sincronización con el servidor (para que iPhone y PC vean lo mismo) --- */
+function apiFetch(ruta,opts){
+  opts=opts||{}; opts.headers=Object.assign({},opts.headers,{"x-app-password":localStorage.getItem(CLAVE_PW)||""});
+  return fetch(ruta,opts);
+}
+async function loginRemoto(password){
+  try{
+    const r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:password})});
+    return r.ok;
+  }catch(e){ return false; }
+}
+async function cargarRemoto(){
+  try{
+    const r=await apiFetch("/api/state");
+    if(r.status===401) return {auth:false};
+    if(!r.ok) return {auth:true,ok:false};
+    const j=await r.json();
+    return {auth:true,ok:true,datos:j.datos,fecha:j.actualizado_en};
+  }catch(e){ return {auth:true,ok:false,offline:true}; }
+}
+function aplicarDatos(d){
+  if(!d) return;
+  if(d.dias) S.dias=d.dias;
+  if(Array.isArray(d.sesiones)) S.sesiones=d.sesiones;
+  if(Array.isArray(d.pesos)) S.pesos=d.pesos;
+  if(d.inicioBloque!==undefined) S.inicioBloque=d.inicioBloque;
+  try{ localStorage.setItem(CLAVE,JSON.stringify({dias:S.dias,sesiones:S.sesiones,
+    pesos:S.pesos,inicioBloque:S.inicioBloque})); }catch(e){}
+}
+let _syncTimer=null;
+function sincronizar(){
+  clearTimeout(_syncTimer);
+  _syncTimer=setTimeout(async ()=>{
+    try{
+      const r=await apiFetch("/api/state",{method:"PUT",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({dias:S.dias,sesiones:S.sesiones,pesos:S.pesos,inicioBloque:S.inicioBloque})});
+      if(r.status===401){ cerrarSesion(); return; }
+      if(r.ok){ const j=await r.json(); S.sincEstado="ok"; S.sincFecha=j.actualizado_en; }
+      else S.sincEstado="error";
+    }catch(e){ S.sincEstado="offline"; }
+    if(S.tab==="datos") render();
+  },700);
+}
+function cerrarSesion(){ localStorage.removeItem(CLAVE_PW); location.reload(); }
+function mostrarLogin(msg){
+  document.getElementById("login").classList.add("on");
+  document.getElementById("loginError").textContent=msg||"";
+}
+function ocultarLogin(){ document.getElementById("login").classList.remove("on"); }
+async function intentarEntrar(){
+  const campo=document.getElementById("loginPw"), boton=document.getElementById("loginBtn");
+  const pw=campo.value; boton.disabled=true;
+  const ok=await loginRemoto(pw); boton.disabled=false;
+  if(!ok){ document.getElementById("loginError").textContent="Contraseña incorrecta o sin conexión."; return; }
+  localStorage.setItem(CLAVE_PW,pw); ocultarLogin();
+  const res=await cargarRemoto();
+  if(res.ok){ aplicarDatos(res.datos); S.sincEstado="ok"; S.sincFecha=res.fecha; render(); }
+}
+async function iniciar(){
+  cargar(); render();
+  document.getElementById("loginBtn").addEventListener("click",intentarEntrar);
+  document.getElementById("loginPw").addEventListener("keydown",e=>{ if(e.key==="Enter") intentarEntrar(); });
+  const pwGuardada=localStorage.getItem(CLAVE_PW);
+  if(!pwGuardada){ mostrarLogin(); return; }
+  const res=await cargarRemoto();
+  if(res.auth===false){ localStorage.removeItem(CLAVE_PW); mostrarLogin("La sesión caducó, vuelve a entrar."); return; }
+  if(res.ok){ aplicarDatos(res.datos); S.sincEstado="ok"; S.sincFecha=res.fecha; }
+  else S.sincEstado="offline";
+  render();
+}
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{ navigator.serviceWorker.register("/sw.js").catch(()=>{}); });
 }
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const plantillaDe=()=>PLANTILLAS[S.dias];
@@ -674,9 +762,18 @@ function volcado(){
     inicioBloque:S.inicioBloque,sesiones:S.sesiones,pesos:S.pesos,
     records:calcularRecords(S.sesiones)},null,2);
 }
+function textoSinc(){
+  if(S.sincEstado==="ok") return "Sincronizado"+(S.sincFecha?(" · "+new Date(S.sincFecha).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})):"");
+  if(S.sincEstado==="offline") return "Sin conexión con el servidor · usando copia local de este dispositivo";
+  if(S.sincEstado==="error") return "El servidor rechazó el último guardado";
+  return "Sincronizando…";
+}
 function vistaDatos(){
   const b=bloque();
-  return '<p class="eyebrow">ESTADO DEL BLOQUE</p><div class="tarjeta" style="margin-top:10px">'+
+  return '<p class="eyebrow">SERVIDOR</p><div class="tarjeta" style="margin-top:10px">'+
+    '<p class="mono" style="font-size:11px;color:'+(S.sincEstado==="ok"?"var(--verde)":S.sincEstado==="offline"||S.sincEstado==="error"?"var(--ambar)":"var(--tenue)")+'">'+esc(textoSinc())+'</p>'+
+    '<button class="btn sec" style="margin-top:10px" data-a="cerrarSesion">Cerrar sesión</button></div>'+
+    '<p class="eyebrow">ESTADO DEL BLOQUE</p><div class="tarjeta" style="margin-top:10px">'+
     '<p class="mono" style="font-size:12px;line-height:1.8;color:var(--tenue)">Semana '+b.semana+' de 6<br>'+
     b.congeladas+' semanas congeladas<br>'+S.sesiones.length+' sesiones · '+
     S.pesos.length+' mediciones corporales</p>'+
@@ -823,6 +920,7 @@ document.addEventListener("click",ev=>{
     S.inicioBloque=new Date().toISOString();
     S.aviso="Bloque nuevo empezado."; guardar(); S.tab="semana"; render();
   }
+  else if(a==="cerrarSesion"){ cerrarSesion(); }
 });
 document.addEventListener("input",ev=>{
   const el=ev.target;
@@ -836,7 +934,7 @@ document.addEventListener("input",ev=>{
   if(el.id==="cardioMin"&&S.borrador) S.borrador.cardioMin=el.value;
 });
 document.getElementById("modal").addEventListener("click",ev=>{ if(ev.target.id==="modal") cerrarModal(); });
-cargar(); render();
+iniciar();
 </script>
 </body>
 </html>
