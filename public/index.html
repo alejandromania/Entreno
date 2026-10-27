@@ -54,25 +54,23 @@ background:transparent;color:transparent;display:flex;align-items:center;justify
 .hueco .slot{font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.05em;
 font-size:16px;font-weight:600;line-height:1.1}
 .hueco .ejer{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--azul);margin-top:3px}
-input,textarea{background:var(--sup2);border:1px solid var(--linea);border-radius:2px;color:var(--texto);
+input,textarea,select{background:var(--sup2);border:1px solid var(--linea);border-radius:2px;color:var(--texto);
 padding:8px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:16px;width:100%}
-input:focus,textarea:focus{outline:2px solid var(--azul);outline-offset:-1px}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--azul);outline-offset:-1px}
 input.mal{border-color:var(--rojo)}
 textarea{min-height:110px;font-size:11px;resize:vertical}
 .campos{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .campo label{display:block;font-size:10px;letter-spacing:.12em;color:var(--tenue);
 font-weight:600;text-transform:uppercase;margin-bottom:4px}
-.barra{display:flex;gap:2px;height:18px;margin-top:6px}
-.seg{flex:1;background:var(--sup2);border-radius:1px;min-width:3px}
 .sub{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
 .subb{flex:1;min-width:78px;background:var(--sup);border:1px solid var(--linea);border-radius:2px;padding:10px 4px;
 color:var(--tenue);font:inherit;font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;cursor:pointer}
 .subb.on{color:var(--texto);border-color:var(--rojo)}
 .grupo{font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.08em;
 font-size:15px;font-weight:600;color:var(--ambar);padding:14px 0 4px;border-bottom:1px solid var(--linea)}
-nav{position:fixed;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(6,1fr);
+nav{position:fixed;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(5,1fr);
 background:var(--sup);border-top:1px solid var(--linea);z-index:30;padding-bottom:env(safe-area-inset-bottom)}
-nav button{padding:12px 0 15px;background:none;border:0;color:var(--tenue);font-size:8px;
+nav button{padding:12px 0 15px;background:none;border:0;color:var(--tenue);font-size:9px;
 letter-spacing:.06em;text-transform:uppercase;font-weight:600;border-top:2px solid transparent;font-family:inherit;cursor:pointer}
 nav button.on{color:var(--texto);border-top-color:var(--rojo)}
 .btn{background:var(--rojo);color:#fff;border:0;border-radius:2px;padding:14px 20px;
@@ -88,8 +86,6 @@ padding:18px calc(18px + env(safe-area-inset-left)) calc(18px + env(safe-area-in
 .opt{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--linea);
 padding:13px 0;color:var(--texto);font:inherit;cursor:pointer}
 .opt.sel{color:var(--azul)}
-.pr{display:inline-block;background:var(--ambar);color:#12171A;font-family:'IBM Plex Mono',monospace;
-font-size:9px;font-weight:600;padding:2px 5px;border-radius:2px;margin-left:6px}
 .vacio{text-align:center;color:var(--tenue);padding:44px 20px;font-size:14px;line-height:1.6}
 svg.graf{width:100%;height:auto;display:block}
 #login{position:fixed;inset:0;background:var(--fondo);z-index:100;display:none;align-items:center;justify-content:center;padding:24px}
@@ -224,7 +220,17 @@ const RECORDS_INICIALES = [
 
 const GRANDE=[8,9,9,10,10,6], PEQUENO=[4,4,4,5,5,3], GEMELO=[3,3,3,4,4,2];
 const PECHO_ESPALDA=[10,12,14,16,18,8], HOMBRO=[8,9,10,11,12,6], BICEPS_TRICEPS=[6,7,8,9,10,5];
-const TOPE_MINUTOS=50, MARGEN_RECORTE=20, MIN_BASICO=2.0, MIN_AISL=1.5, MIN_TRANS=1, MIN_CARDIO=12;
+/* Series por semana (semanas 1 a 5 y descarga en la 6) propias de los planes de 4 y 5 días.
+   Lo que no aparece aquí usa las tablas generales de arriba. */
+const TABLAS_DIAS={
+  4:{pecho:[12,13,14,15,16,8],espalda:[12,13,14,15,16,8],
+     biceps:[8,9,10,11,12,5],triceps:[8,9,10,11,12,5],
+     cuadriceps:[6,7,8,9,10,6],femoral:[6,7,8,9,10,6]},
+  5:{pecho:[16,17,18,19,20,10],espalda:[16,17,18,19,20,10],
+     hombro:[12,13,14,15,16,8],biceps:[12,13,14,15,16,8],triceps:[12,13,14,15,16,8]}
+};
+const cardioDe=d=>d.conCardio?(typeof d.conCardio==="number"?d.conCardio:MIN_CARDIO):0;
+const TOPE_MINUTOS=70, MARGEN_RECORTE=20, MIN_BASICO=2.0, MIN_AISL=1.5, MIN_TRANS=1, MIN_CARDIO=12;
 
 const METRICAS = [
  {k:"peso",n:"Peso corporal",corto:"Peso",u:"kg",c:"var(--verde)"},
@@ -235,8 +241,9 @@ const METRICAS = [
 ];
 
 /* fijo: series exactas por grupo (1 y 2 días, definidos a mano).
-   conCardio: la sesión reserva 12 minutos de cardio al final.
-   topeAlto: día de un solo músculo, admite más series por sesión. */
+   conCardio: la sesión reserva cardio al final (true = 12 min, o un número de minutos).
+   topeAlto: día de un solo músculo, admite más series por sesión.
+   topes: máximo de series por sesión de un grupo concreto. */
 const PLANTILLAS = {
  1:{nombre:"Full body",dias:[
    {nombre:"Full body",int:"pesada",fijo:{pecho:5,espalda:5,cuadriceps:3,femoral:2},
@@ -257,17 +264,18 @@ const PLANTILLAS = {
    {nombre:"Pierna",int:"pesada",huecos:{cuadriceps:["cuad_compuesto","cuad_extension"],
      femoral:["fem_cadera","fem_curl"],gluteo:["gluteo_cadera","gluteo_aisl"],gemelo:["gemelo_pie"]}}]},
  4:{nombre:"Push / Pull ×2",dias:[
-   {nombre:"Push + cuádriceps",int:"pesada",huecos:{pecho:["pecho_plano","pecho_apertura"],
+   {nombre:"Push + cuádriceps",int:"pesada",conCardio:10,huecos:{pecho:["pecho_plano","pecho_apertura"],
      hombro:["hombro_press","hombro_lateral"],triceps:["triceps_compuesto"],
      cuadriceps:["cuad_compuesto"],core:["core_antiext","core_flexion"]}},
-   {nombre:"Pull + femoral",int:"pesada",conCardio:true,huecos:{espalda:["espalda_horizontal","espalda_vertical"],
+   {nombre:"Pull + femoral",int:"pesada",conCardio:20,huecos:{espalda:["espalda_horizontal","espalda_vertical"],
      biceps:["biceps_curl"],femoral:["fem_cadera","fem_curl"],gluteo:["gluteo_cadera"],gemelo:["gemelo_pie"]}},
-   {nombre:"Push + cuádriceps",int:"control",huecos:{pecho:["pecho_inclinado","pecho_apertura"],
+   {nombre:"Push + cuádriceps",int:"control",conCardio:20,huecos:{pecho:["pecho_inclinado","pecho_apertura"],
      hombro:["hombro_lateral","hombro_posterior","hombro_frontal"],triceps:["triceps_extension"],
      cuadriceps:["cuad_extension","cuad_compuesto"],core:["core_antirot","core_flexion"]}},
-   {nombre:"Pull + femoral",int:"control",conCardio:true,huecos:{espalda:["espalda_vertical","espalda_pullover"],
+   {nombre:"Pull + femoral",int:"control",conCardio:30,huecos:{espalda:["espalda_vertical","espalda_pullover"],
      biceps:["biceps_neutro","biceps_curl"],femoral:["fem_curl"],gluteo:["gluteo_aisl"]}}]},
- 5:{nombre:"Un músculo por día",topeAlto:true,dias:[
+ 5:{nombre:"Un músculo por día",topeAlto:true,
+   topes:{pecho:20,espalda:20,hombro:16,biceps:16,triceps:16},dias:[
    {nombre:"Pecho + abdominales",int:"pesada",huecos:{
      pecho:["pecho_plano","pecho_inclinado","pecho_apertura"],core:["core_antiext","core_flexion"]}},
    {nombre:"Espalda",int:"pesada",conCardio:true,huecos:{
@@ -293,35 +301,45 @@ function expandir(s){
   return Array.from({length:n},(_,i)=>Math.round(a+paso*i));
 }
 const diasDesde=iso=>(Date.now()-new Date(iso).getTime())/86400000;
-function claveSemana(d){ const f=new Date(d); f.setDate(f.getDate()-((f.getDay()+6)%7));
-  return f.toISOString().slice(0,10); }
+function lunesDe(d){ const f=new Date(d); f.setHours(0,0,0,0); f.setDate(f.getDate()-((f.getDay()+6)%7)); return f; }
+function claveFecha(f){ return f.getFullYear()+"-"+String(f.getMonth()+1).padStart(2,"0")+"-"+String(f.getDate()).padStart(2,"0"); }
+function claveSemana(d){ return claveFecha(lunesDe(d)); }
+const FECHA_MANUAL=/^\d{4}-\d{2}-\d{2}$/;
+const normInicio=v=>(typeof v==="string"&&FECHA_MANUAL.test(v))?v:null;
+function inicioEfectivo(ses,inicio){
+  const m=normInicio(inicio);
+  if(m){ const p=m.split("-"); return new Date(+p[0],+p[1]-1,+p[2]); }
+  if(!ses.length) return null;
+  const d=new Date(ses.reduce((x,s)=>new Date(s.fecha)<new Date(x)?s.fecha:x,ses[0].fecha));
+  d.setHours(0,0,0,0); return d;
+}
+/* El bloque se cuenta por calendario desde la FECHA de la primera sesión guardada (la fecha del
+   entreno, no el momento en que se guardó) o desde una fecha puesta a mano en Datos.
+   Cada lunes avanza una semana; tras la semana 6 empieza un bloque nuevo. */
 function estadoBloque(ses,inicio){
-  if(!inicio) return {semana:1,congeladas:0,recortadas:[]};
-  const cuenta={};
-  for(const s of ses){ if(new Date(s.fecha)<new Date(inicio)) continue;
-    const k=claveSemana(s.fecha); cuenta[k]=(cuenta[k]||0)+1; }
-  const actual=claveSemana(new Date());
-  let semana=1,congeladas=0; const recortadas=[];
-  Object.keys(cuenta).sort().forEach(k=>{
-    if(k===actual) return;
-    if(cuenta[k]>=3){ semana++; if(cuenta[k]===3) recortadas.push(semana-1); }
-    else congeladas++;
-  });
-  return {semana:Math.min(semana,6),congeladas:congeladas,recortadas:recortadas};
+  const actual=lunesDe(new Date()), ini=inicioEfectivo(ses,inicio), kAct=claveFecha(actual);
+  let estaSemana=0; for(const s of ses) if(claveSemana(s.fecha)===kAct) estaSemana++;
+  if(!ini) return {semana:1,bloque:1,congeladas:0,recortadas:[],terminado:false,desde:new Date(),sinInicio:true,estaSemana:estaSemana};
+  const l0=lunesDe(ini);
+  const n=Math.max(0,Math.round((Date.UTC(actual.getFullYear(),actual.getMonth(),actual.getDate())-
+    Date.UTC(l0.getFullYear(),l0.getMonth(),l0.getDate()))/604800000));
+  return {semana:(n%6)+1,bloque:Math.floor(n/6)+1,congeladas:0,recortadas:[],terminado:false,
+    desde:ini,sinInicio:false,estaSemana:estaSemana};
 }
 function objetivoSemanal(g,semana,dias){
   const i=Math.min(Math.max(semana,1),6)-1;
   const tabla=g==="gemelo"?GEMELO:(g==="pecho"||g==="espalda")?PECHO_ESPALDA:
     g==="hombro"?HOMBRO:(g==="biceps"||g==="triceps")?BICEPS_TRICEPS:
     GRUPOS[g].tipo==="grande"?GRANDE:PEQUENO;
-  let v=tabla[i];
+  const esp=TABLAS_DIAS[dias]&&TABLAS_DIAS[dias][g];
+  let v=(esp||tabla)[i];
   if(dias<=2) v=Math.round(v*0.6); else if(dias===3) v=Math.round(v*0.8);
   return Math.max(MINIMOS[g]||2, v);
 }
 function repartir(plantilla,semana,dias){
   const ds=plantilla.dias;
   if(ds.every(d=>d.fijo)) return ds.map(d=>Object.assign({},d.fijo));
-  const tope=g=>plantilla.topeAlto&&GRUPOS[g].tipo==="grande"?Math.max(GRUPOS[g].tope,12):GRUPOS[g].tope;
+  const tope=g=>(plantilla.topes&&plantilla.topes[g])||(plantilla.topeAlto&&GRUPOS[g].tipo==="grande"?Math.max(GRUPOS[g].tope,12):GRUPOS[g].tope);
   const plan=ds.map(()=>({}));
   for(const g in GRUPOS){
     const obj=objetivoSemanal(g,semana,dias);
@@ -331,13 +349,6 @@ function repartir(plantilla,semana,dias){
     idx.forEach((i,k)=>{ plan[i][g]=Math.min(base+(k<resto?1:0),tope(g)); });
   }
   return plan;
-}
-function volumen(ses,dias){
-  dias=dias||7; const acc={};
-  for(const s of ses){ if(diasDesde(s.fecha)>dias) continue;
-    for(const e of (s.ejercicios||[])){ if(!e.hecho||!e.series||!e.series.length) continue;
-      const g=grupoDe(e.ejercicioId); if(g) acc[g]=(acc[g]||0)+e.series.length; } }
-  return acc;
 }
 function usoDetalle(ses){
   const acc={};
@@ -393,7 +404,7 @@ function elegirEjercicio(hueco,uso,intensidad){
 }
 function proponer(objetivosDia,dia,ses,records){
   const uso=usoDetalle(ses), salida=[], intensidad=dia.int||"pesada";
-  const presupuesto=TOPE_MINUTOS-(dia.conCardio?MIN_CARDIO:0);
+  const presupuesto=TOPE_MINUTOS-cardioDe(dia);
   const grupos=Object.entries(objetivosDia).sort((a,b)=>b[1]-a[1]);
   for(const par of grupos){
     const grupo=par[0], total=par[1];
@@ -414,31 +425,27 @@ function proponer(objetivosDia,dia,ses,records){
   let recortado=false;
   while(minutosDe(salida)>presupuesto+MARGEN_RECORTE&&salida.length>3){ salida.pop(); recortado=true; }
   return {lista:salida,recortado:recortado,
-    minutos:minutosDe(salida)+(dia.conCardio?MIN_CARDIO:0),
+    minutos:minutosDe(salida)+cardioDe(dia),
     series:salida.reduce((a,e)=>a+(expandir(e.notacion)||[]).length,0)};
 }
 function construirHistorico(ses){
-  const best={};
-  for(const x of RECORDS_INICIALES) best[x.ejercicioId+"|"+x.reps]=x.peso;
-  return ses.slice().sort((a,b)=>new Date(a.fecha)-new Date(b.fecha)).map(s=>{
-    const prs=[];
-    for(const e of (s.ejercicios||[])) for(const set of e.series){
-      if(set.peso==null) continue;
-      const k=e.ejercicioId+"|"+set.reps;
-      if(best[k]===undefined||best[k]<set.peso){ best[k]=set.peso; prs.push({id:e.ejercicioId}); }
-    }
-    return Object.assign({},s,{prs:prs});
-  }).reverse();
+  return ses.slice().sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
 }
-function calcularRecords(ses){
+/* Los récords ahora se escriben a mano. Esta función solo se usa una vez, para migrar los datos
+   de la versión anterior (marcas de partida + mejores marcas de las sesiones guardadas). */
+function migrarRecords(ses){
   const r={};
   for(const x of RECORDS_INICIALES) r[x.ejercicioId+"|"+x.reps]=x;
   for(const s of ses) for(const e of (s.ejercicios||[])) for(const set of e.series){
     if(set.peso==null) continue;
     const k=e.ejercicioId+"|"+set.reps;
-    if(!r[k]||r[k].peso<set.peso) r[k]={ejercicioId:e.ejercicioId,reps:set.reps,peso:set.peso,fecha:s.fecha};
+    if(!r[k]||r[k].peso<set.peso) r[k]={ejercicioId:e.ejercicioId,reps:set.reps,peso:set.peso};
   }
-  return Object.values(r).filter(x=>PORID[x.ejercicioId]);
+  return normRecords(Object.values(r));
+}
+function normRecords(arr){
+  return arr.filter(x=>x&&PORID[x.ejercicioId]&&+x.reps>0&&!isNaN(+x.peso))
+    .map((x,i)=>({id:i+1,ejercicioId:x.ejercicioId,reps:+x.reps,peso:+x.peso}));
 }
 
 /* =====================================================================
@@ -446,17 +453,20 @@ function calcularRecords(ses){
    ===================================================================== */
 const CLAVE="entreno:v6", CLAVE_PW="entreno:pw";
 let S={tab:"semana",subtab:"records",metrica:"peso",dias:4,inicioBloque:null,
-       sesiones:[],pesos:[],editando:null,borrador:null,aviso:"",cambiando:null,
+       sesiones:[],pesos:[],records:[],punto:null,editando:null,borrador:null,aviso:"",cambiando:null,
        sincEstado:"pendiente",sincFecha:null};
 function cargar(){
+  let rec=null;
   try{ const d=JSON.parse(localStorage.getItem(CLAVE));
     if(d){ S.dias=d.dias||4; S.sesiones=d.sesiones||[]; S.pesos=d.pesos||[];
-      S.inicioBloque=d.inicioBloque||null; }
+      S.inicioBloque=normInicio(d.inicioBloque); rec=Array.isArray(d.records)?d.records:null; }
   }catch(e){}
+  S.records=rec?normRecords(rec):migrarRecords(S.sesiones);
+  if(!rec){ try{ localStorage.setItem(CLAVE,JSON.stringify({dias:S.dias,sesiones:S.sesiones,pesos:S.pesos,records:S.records,inicioBloque:S.inicioBloque})); }catch(e){} }
 }
 function guardar(){
   try{ localStorage.setItem(CLAVE,JSON.stringify({dias:S.dias,sesiones:S.sesiones,
-    pesos:S.pesos,inicioBloque:S.inicioBloque})); }
+    pesos:S.pesos,records:S.records,inicioBloque:S.inicioBloque})); }
   catch(e){ S.aviso="No se pudo guardar. Descarga una copia."; }
   sincronizar();
 }
@@ -486,9 +496,12 @@ function aplicarDatos(d){
   if(d.dias) S.dias=d.dias;
   if(Array.isArray(d.sesiones)) S.sesiones=d.sesiones;
   if(Array.isArray(d.pesos)) S.pesos=d.pesos;
-  if(d.inicioBloque!==undefined) S.inicioBloque=d.inicioBloque;
+  if(d.inicioBloque!==undefined) S.inicioBloque=normInicio(d.inicioBloque);
+  const faltaRecords=!Array.isArray(d.records);
+  S.records=faltaRecords?migrarRecords(S.sesiones):normRecords(d.records);
   try{ localStorage.setItem(CLAVE,JSON.stringify({dias:S.dias,sesiones:S.sesiones,
-    pesos:S.pesos,inicioBloque:S.inicioBloque})); }catch(e){}
+    pesos:S.pesos,records:S.records,inicioBloque:S.inicioBloque})); }catch(e){}
+  if(faltaRecords) sincronizar();
 }
 let _syncTimer=null;
 function sincronizar(){
@@ -496,7 +509,7 @@ function sincronizar(){
   _syncTimer=setTimeout(async ()=>{
     try{
       const r=await apiFetch("/api/state",{method:"PUT",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({dias:S.dias,sesiones:S.sesiones,pesos:S.pesos,inicioBloque:S.inicioBloque})});
+        body:JSON.stringify({dias:S.dias,sesiones:S.sesiones,pesos:S.pesos,records:S.records,inicioBloque:S.inicioBloque})});
       if(r.status===401){ cerrarSesion(); return; }
       if(r.ok){ const j=await r.json(); S.sincEstado="ok"; S.sincFecha=j.actualizado_en; }
       else S.sincEstado="error";
@@ -543,14 +556,6 @@ const ahoraLocal=()=>new Date(Date.now()-new Date().getTimezoneOffset()*60000).t
 /* =====================================================================
    4. VISTAS
    ===================================================================== */
-function barraHTML(hechas,obj){
-  const total=Math.max(obj+4,hechas+1);
-  const col=hechas<obj*0.6?"var(--rojo)":hechas<obj?"var(--ambar)":hechas<=obj+3?"var(--verde)":"var(--azul)";
-  let h='<div class="barra">';
-  for(let i=0;i<total;i++)
-    h+='<div class="seg" style="'+(i<hechas?"background:"+col+";":"")+(i===obj?"border-left:2px solid var(--tenue);":"")+'"></div>';
-  return h+"</div>";
-}
 function cabecera(){
   const b=bloque();
   document.getElementById("hinfo").textContent=
@@ -569,16 +574,24 @@ function cabecera(){
   }
   document.getElementById("sesbar").innerHTML=sb;
 }
+function tarjetaBloque(b){
+  const f=t=>t.toLocaleDateString("es-ES",{day:"numeric",month:"short"});
+  return '<div class="tarjeta"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">'+
+    '<div class="disp" style="font-size:24px;font-weight:700">Semana '+b.semana+'<span style="font-size:15px;color:var(--tenue)"> de 6</span></div>'+
+    '<div class="mono" style="font-size:10px;color:var(--tenue)">bloque '+b.bloque+' · '+(b.sinInicio?"sin sesiones aún":"desde el "+f(b.desde))+'</div></div>'+
+    '<div class="mono" style="font-size:11px;line-height:1.6;margin-top:8px;color:var(--tenue)">Esta semana: '+b.estaSemana+
+    (b.estaSemana===1?" sesión":" sesiones")+'</div></div>';
+}
 function vistaSemana(){
   const b=bloque(), pl=plantillaDe(), plan=repartir(pl,b.semana,S.dias);
-  const recs=calcularRecords(S.sesiones);
-  let h='<p class="eyebrow">DÍAS QUE PUEDO ENTRENAR ESTA SEMANA</p><div class="dias">';
+  const recs=S.records;
+  let h=tarjetaBloque(b)+'<p class="eyebrow">DÍAS QUE PUEDO ENTRENAR ESTA SEMANA</p><div class="dias">';
   for(let n=1;n<=5;n++)
     h+='<button class="dia'+(S.dias===n?" on":"")+'" data-a="dias" data-v="'+n+'"><b>'+n+'</b><span>'+(n===1?"día":"días")+'</span></button>';
   h+="</div>";
-  if(S.dias<=2) h+='<div class="tarjeta" style="border-color:var(--ambar)"><span class="mono" style="font-size:12px;color:var(--ambar);line-height:1.6">Semana congelada: con 1 o 2 días el bloque no avanza y las series son fijas. Retomas la semana '+b.semana+' cuando vuelvas a 3 o más.</span></div>';
+  if(S.dias<=2) h+='<div class="tarjeta" style="border-color:var(--ambar)"><span class="mono" style="font-size:12px;color:var(--ambar);line-height:1.6">Con 1 o 2 días las series son fijas (full body). El bloque sigue avanzando por calendario.</span></div>';
   else if(S.dias===3) h+='<div class="tarjeta" style="border-color:var(--azul)"><span class="mono" style="font-size:12px;color:var(--azul);line-height:1.6">Semana recortada: el volumen baja un 20%, salvo pecho y espalda que mantienen su mínimo de 6.</span></div>';
-  if(b.semana>=6&&S.dias>=3) h+='<div class="tarjeta" style="border-color:var(--ambar)"><span class="mono" style="font-size:12px;color:var(--ambar);line-height:1.6">Semana 6: toca descarga. Es un aviso, no una orden: si los pesos siguen subiendo y no te molesta nada, puedes estirar el bloque.</span></div>';
+  if(b.semana>=6&&S.dias>=3&&!b.terminado) h+='<div class="tarjeta" style="border-color:var(--ambar)"><span class="mono" style="font-size:12px;color:var(--ambar);line-height:1.6">Semana 6: toca descarga. Es un aviso, no una orden: si los pesos siguen subiendo y no te molesta nada, puedes estirar el bloque.</span></div>';
   pl.dias.forEach((d,idx)=>{
     const res=proponer(plan[idx],d,S.sesiones,recs);
     const cuenta={};
@@ -590,7 +603,7 @@ function vistaSemana(){
       (d.conCardio?'<span class="etq car">CARDIO</span>':"")+'</div>'+
       '<div class="mono" style="font-size:11px;color:var(--tenue);margin-top:5px">'+esc(det)+'</div>'+
       '<div class="mono" style="font-size:10px;color:var(--verde);margin-top:3px">'+res.series+' series'+
-      (d.conCardio?" + "+MIN_CARDIO+" min cardio":"")+' · ≈'+res.minutos+' min</div></div>'+
+      (d.conCardio?" + "+cardioDe(d)+" min cardio":"")+' · ≈'+res.minutos+' min</div></div>'+
       '<button class="btn mini" data-a="abrir" data-v="'+idx+'">Abrir</button></div></div>';
   });
   return h;
@@ -635,29 +648,15 @@ function vistaSesion(){
      '<button class="btn sec" style="margin-top:8px" data-a="descartar">Descartar</button>';
   return h;
 }
-function vistaVolumen(){
-  const b=bloque(), v=volumen(S.sesiones,7), pl=plantillaDe();
-  const plan=repartir(pl,b.semana,S.dias);
-  const objSem={};
-  plan.forEach(p=>{ for(const g in p) objSem[g]=(objSem[g]||0)+p[g]; });
-  let h='<p class="eyebrow">SERIES EFECTIVAS · ÚLTIMOS 7 DÍAS</p><div class="tarjeta" style="margin-top:10px">';
-  for(const g in GRUPOS){
-    const obj=objSem[g]||0; if(!obj&&!(v[g]||0)) continue;
-    const hechas=v[g]||0;
-    h+='<div style="padding:9px 0"><div style="display:flex;justify-content:space-between;font-size:13px">'+
-      '<span>'+GRUPOS[g].nombre+'</span><span class="mono" style="color:'+(hechas<obj?"var(--tenue)":"var(--verde)")+'">'+
-      hechas+"/"+obj+'</span></div>'+barraHTML(hechas,obj)+'</div>';
-  }
-  const carMin=S.sesiones.filter(s=>diasDesde(s.fecha)<=7).reduce((a,s)=>a+(s.cardioMin||0),0);
-  return h+'</div><p class="mono" style="font-size:11px;color:var(--tenue)">Cardio esta semana: '+carMin+' minutos</p>';
-}
+let GP=[];
 function grafica(campo){
   const met=METRICAS.find(m=>m.k===campo);
   const pts=S.pesos.filter(d=>d[campo]!==""&&d[campo]!=null&&!isNaN(+d[campo]))
     .map(d=>({x:new Date(d.fecha+"T12:00").getTime(),y:+d[campo]})).sort((a,b)=>a.x-b.x);
+  GP=[];
   if(pts.length<2)
     return '<p class="mono" style="font-size:11px;color:var(--tenue);padding:24px 0;text-align:center">Necesitas dos registros de '+met.n.toLowerCase()+' para dibujar la línea.</p>';
-  const W=340,H=150,L=38,R=10,T=12,B=26;
+  const W=340,H=160,L=38,R=14,T=30,B=26;
   const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
   const x0=Math.min.apply(null,xs), x1=Math.max.apply(null,xs);
   let y0=Math.min.apply(null,ys), y1=Math.max.apply(null,ys);
@@ -665,6 +664,8 @@ function grafica(campo){
   const m=(y1-y0)*0.18; y0-=m; y1+=m;
   const sx=v=>L+(x1===x0?0.5:(v-x0)/(x1-x0))*(W-L-R);
   const sy=v=>T+(1-(v-y0)/(y1-y0))*(H-T-B);
+  GP=pts.map(p=>sx(p.x));
+  const sel=(S.punto!=null&&S.punto<pts.length)?S.punto:pts.length-1;
   let d="";
   pts.forEach((p,i)=>{ d+=(i?" L":"M")+sx(p.x).toFixed(1)+" "+sy(p.y).toFixed(1); });
   let s='<svg class="graf" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Evolución de '+esc(met.n)+'">';
@@ -675,14 +676,24 @@ function grafica(campo){
        (Math.round(v*10)/10)+'</text>';
   });
   s+='<path d="'+d+'" fill="none" stroke="'+met.c+'" stroke-width="2" stroke-linejoin="round"/>';
-  pts.forEach(p=>{ s+='<circle cx="'+sx(p.x).toFixed(1)+'" cy="'+sy(p.y).toFixed(1)+'" r="2.8" fill="'+met.c+'"/>'; });
+  const px=sx(pts[sel].x), py=sy(pts[sel].y);
+  s+='<line x1="'+px.toFixed(1)+'" y1="'+T+'" x2="'+px.toFixed(1)+'" y2="'+(H-B)+'" stroke="var(--tenue)" stroke-width="1" stroke-dasharray="3 3"/>';
+  pts.forEach((p,i)=>{ s+='<circle cx="'+sx(p.x).toFixed(1)+'" cy="'+sy(p.y).toFixed(1)+'" r="'+(i===sel?5:2.8)+'" fill="'+met.c+'"'+
+    (i===sel?' stroke="var(--fondo)" stroke-width="2"':"")+'/>'; });
   const f=t=>new Date(t).toLocaleDateString("es-ES",{day:"numeric",month:"short"});
+  const txt=f(pts[sel].x)+" · "+pts[sel].y+(met.u?" "+met.u:"");
+  const bw=txt.length*6+14, bh=19;
+  const bx=Math.min(Math.max(px-bw/2,2),W-2-bw);
+  let by=py-bh-10; if(by<2) by=py+10;
+  s+='<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+bw+'" height="'+bh+'" rx="2" fill="var(--sup2)" stroke="var(--linea)"/>'+
+     '<text x="'+(bx+bw/2).toFixed(1)+'" y="'+(by+13).toFixed(1)+'" fill="var(--texto)" font-size="10" font-weight="600" font-family="IBM Plex Mono,monospace" text-anchor="middle">'+esc(txt)+'</text>';
   s+='<text x="'+L+'" y="'+(H-8)+'" fill="var(--tenue)" font-size="9" font-family="IBM Plex Mono,monospace">'+f(x0)+'</text>'+
      '<text x="'+(W-R)+'" y="'+(H-8)+'" fill="var(--tenue)" font-size="9" font-family="IBM Plex Mono,monospace" text-anchor="end">'+f(x1)+'</text></svg>';
   const dif=pts[pts.length-1].y-pts[0].y;
   return s+'<p class="mono" style="font-size:11px;color:var(--tenue);margin-top:8px">'+
     (dif>0?"+":"")+(Math.round(dif*10)/10)+" "+met.u+' desde el primer registro · último '+
-    pts[pts.length-1].y+" "+met.u+'</p>';
+    pts[pts.length-1].y+" "+met.u+'</p>'+
+    '<p class="mono" style="font-size:10px;color:var(--tenue);margin-top:4px">Toca la gráfica para ver el valor de cada día.</p>';
 }
 function vistaPeso(){
   const ed=S.editando;
@@ -697,7 +708,7 @@ function vistaPeso(){
   h+='</div><p class="eyebrow">EVOLUCIÓN</p><div class="sub" style="margin-top:10px">';
   for(const m of METRICAS)
     h+='<button class="subb'+(S.metrica===m.k?" on":"")+'" data-a="metrica" data-v="'+m.k+'">'+m.corto+'</button>';
-  h+='</div><div class="tarjeta">'+grafica(S.metrica)+'</div><p class="eyebrow">REGISTROS</p>';
+  h+='</div><div class="tarjeta" id="grafbox">'+grafica(S.metrica)+'</div><p class="eyebrow">REGISTROS</p>';
   if(!S.pesos.length) return h+'<div class="vacio">Aún no has metido ninguna medición.</div>';
   const orden=S.pesos.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));
   h+='<div class="tarjeta" style="margin-top:10px">';
@@ -716,20 +727,36 @@ function vistaMarcas(){
   let h='<div class="sub"><button class="subb'+(S.subtab==="records"?" on":"")+'" data-a="subtab" data-v="records">Récords</button>'+
     '<button class="subb'+(S.subtab==="historico"?" on":"")+'" data-a="subtab" data-v="historico">Histórico</button></div>';
   if(S.subtab==="records"){
-    const recs=calcularRecords(S.sesiones), porG={};
-    for(const r of recs){ const g=grupoDe(r.ejercicioId); (porG[g]=porG[g]||[]).push(r); }
+    let opts="";
+    for(const g in GRUPOS){
+      const l=CATALOGO.filter(e=>grupoDe(e.id)===g); if(!l.length) continue;
+      opts+='<optgroup label="'+GRUPOS[g].nombre+'">'+l.map(e=>'<option value="'+e.id+'">'+esc(e.n)+'</option>').join("")+'</optgroup>';
+    }
+    h+='<p class="mono" style="font-size:10px;color:var(--tenue);line-height:1.6;margin-bottom:12px">Toca cualquier peso o repeticiones para corregirlo. 0 kg = peso corporal. Estos récords se usan para sugerirte el peso en cada sesión.</p>'+
+      '<div class="tarjeta"><p class="eyebrow" style="margin-bottom:8px">NUEVO RÉCORD</p>'+
+      '<div class="campo" style="margin-bottom:10px"><label>Ejercicio</label><select id="r_ej">'+opts+'</select></div>'+
+      '<div class="campos"><div class="campo"><label>Peso (kg)</label><input inputmode="decimal" id="r_peso"></div>'+
+      '<div class="campo"><label>Repeticiones</label><input inputmode="numeric" id="r_reps"></div></div>'+
+      '<button class="btn" style="margin-top:12px" data-a="addRec">Añadir récord</button>'+
+      '<p class="mono" style="font-size:10px;color:var(--tenue);margin-top:8px">Si ya existe una marca con esas repeticiones, se sustituye.</p></div>';
+    const porG={};
+    for(const r of S.records){ const g=grupoDe(r.ejercicioId); (porG[g]=porG[g]||[]).push(r); }
     for(const g in GRUPOS){
       const l=porG[g]; if(!l||!l.length) continue;
       l.sort((a,b)=>PORID[a.ejercicioId].n.localeCompare(PORID[b.ejercicioId].n)||b.reps-a.reps);
       h+='<div class="grupo">'+GRUPOS[g].nombre+'</div><div class="tarjeta">';
-      for(const r of l)
-        h+='<div class="fila"><div style="flex:1;min-width:0"><div style="font-size:14px">'+esc(PORID[r.ejercicioId].n)+'</div>'+
-          '<div class="mono" style="font-size:10px;color:var(--tenue)">'+esc(HUECOS[PORID[r.ejercicioId].h].n)+' · '+
-          (r.fecha?new Date(r.fecha).toLocaleDateString("es-ES"):"marca de partida")+
-          (PORID[r.ejercicioId].m?" · por mancuerna":"")+'</div></div>'+
-          '<div class="mono disp" style="font-size:20px;font-weight:600">'+(r.peso===0?"PC":r.peso)+
-          (r.peso!==0?'<span style="font-size:11px;color:var(--tenue)">kg</span>':"")+'</div>'+
-          '<div class="mono" style="font-size:12px;color:var(--ambar);width:34px;text-align:right">×'+r.reps+'</div></div>';
+      for(const r of l){
+        const m=PORID[r.ejercicioId];
+        h+='<div class="fila" style="flex-wrap:wrap;gap:8px 10px"><div style="width:100%">'+
+          '<div style="font-size:14px">'+esc(m.n)+'</div>'+
+          '<div class="mono" style="font-size:10px;color:var(--tenue)">'+esc(HUECOS[m.h].n)+(m.m?" · por mancuerna":"")+'</div></div>'+
+          '<div style="display:flex;align-items:center;gap:6px;flex:1">'+
+          '<input inputmode="decimal" style="width:84px;text-align:right" data-rec="peso" data-id="'+r.id+'" value="'+r.peso+'">'+
+          '<span class="mono" style="font-size:11px;color:var(--tenue)">kg ×</span>'+
+          '<input inputmode="numeric" style="width:64px" data-rec="reps" data-id="'+r.id+'" value="'+r.reps+'">'+
+          '<span class="mono" style="font-size:11px;color:var(--tenue)">reps</span></div>'+
+          '<button class="borrar" data-a="delRec" data-v="'+r.id+'" aria-label="Borrar">×</button></div>';
+      }
       h+="</div>";
     }
     return h;
@@ -742,14 +769,10 @@ function vistaMarcas(){
       '<div class="mono" style="font-size:10px;color:var(--tenue)">'+
       new Date(s.fecha).toLocaleDateString("es-ES",{weekday:"short",day:"numeric",month:"short"})+'</div></div>';
     if(s.cardioMin) h+='<div class="mono" style="font-size:11px;color:var(--azul);margin-top:6px">'+s.cardioMin+' min de cardio</div>';
-    if(s.prs.length) h+='<div class="mono" style="font-size:11px;color:var(--ambar);margin-top:6px">'+
-      s.prs.length+' récord'+(s.prs.length>1?"s":"")+' en esta sesión</div>';
     for(const e of (s.ejercicios||[])){
-      const pr=s.prs.some(p=>p.id===e.ejercicioId);
       h+='<div style="padding:6px 0;border-top:1px solid var(--linea)">'+
         '<div class="mono" style="font-size:10px;color:var(--tenue)">'+esc(e.hueco?HUECOS[e.hueco].n:"")+'</div>'+
-        '<div style="font-size:13px">'+esc(PORID[e.ejercicioId]?PORID[e.ejercicioId].n:e.ejercicioId)+
-        (pr?'<span class="pr">RÉCORD</span>':"")+'</div>'+
+        '<div style="font-size:13px">'+esc(PORID[e.ejercicioId]?PORID[e.ejercicioId].n:e.ejercicioId)+'</div>'+
         '<div class="mono" style="font-size:10px;color:var(--tenue);margin-top:2px">'+
         e.series.map(x=>x.reps+"×"+(x.peso==null?"—":x.peso)).join("  ")+'</div></div>';
     }
@@ -758,9 +781,9 @@ function vistaMarcas(){
   return h;
 }
 function volcado(){
-  return JSON.stringify({version:9,exportado:new Date().toISOString(),dias:S.dias,
+  return JSON.stringify({version:10,exportado:new Date().toISOString(),dias:S.dias,
     inicioBloque:S.inicioBloque,sesiones:S.sesiones,pesos:S.pesos,
-    records:calcularRecords(S.sesiones)},null,2);
+    records:S.records},null,2);
 }
 function textoSinc(){
   if(S.sincEstado==="ok") return "Sincronizado"+(S.sincFecha?(" · "+new Date(S.sincFecha).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})):"");
@@ -769,15 +792,21 @@ function textoSinc(){
   return "Sincronizando…";
 }
 function vistaDatos(){
-  const b=bloque();
+  const b=bloque(), ini=inicioEfectivo(S.sesiones,S.inicioBloque);
   return '<p class="eyebrow">SERVIDOR</p><div class="tarjeta" style="margin-top:10px">'+
     '<p class="mono" style="font-size:11px;color:'+(S.sincEstado==="ok"?"var(--verde)":S.sincEstado==="offline"||S.sincEstado==="error"?"var(--ambar)":"var(--tenue)")+'">'+esc(textoSinc())+'</p>'+
     '<button class="btn sec" style="margin-top:10px" data-a="cerrarSesion">Cerrar sesión</button></div>'+
     '<p class="eyebrow">ESTADO DEL BLOQUE</p><div class="tarjeta" style="margin-top:10px">'+
-    '<p class="mono" style="font-size:12px;line-height:1.8;color:var(--tenue)">Semana '+b.semana+' de 6<br>'+
-    b.congeladas+' semanas congeladas<br>'+S.sesiones.length+' sesiones · '+
-    S.pesos.length+' mediciones corporales</p>'+
-    '<button class="btn sec" style="margin-top:12px" data-a="nuevoBloque">Empezar bloque nuevo</button></div>'+
+    '<p class="mono" style="font-size:12px;line-height:1.8;color:var(--tenue)">Semana '+b.semana+' de 6 · bloque '+b.bloque+'<br>'+
+    S.sesiones.length+' sesiones · '+S.pesos.length+' mediciones corporales</p>'+
+    '<div class="campo" style="margin-top:12px"><label>Fecha de inicio del bloque</label>'+
+    '<input type="date" id="inicio_bloque" value="'+claveFecha(ini||new Date())+'"></div>'+
+    '<p class="mono" style="font-size:10px;color:var(--tenue);line-height:1.6;margin-top:6px">'+
+    (S.inicioBloque?"Fecha puesta a mano. ":"Automática: la fecha de tu primera sesión guardada. ")+
+    'La semana se cuenta por calendario desde aquí: cada lunes avanza una semana y tras la 6 empieza un bloque nuevo.</p>'+
+    '<button class="btn sec" style="margin-top:10px" data-a="guardarInicio">Guardar fecha</button>'+
+    (S.inicioBloque?'<button class="btn sec" style="margin-top:8px" data-a="inicioAuto">Usar la fecha de la primera sesión</button>':"")+
+    '<button class="btn sec" style="margin-top:8px" data-a="nuevoBloque">Empezar bloque nuevo esta semana</button></div>'+
     '<p class="eyebrow">COPIA DE SEGURIDAD</p><div class="tarjeta" style="margin-top:10px">'+
     '<button class="btn" data-a="exportar">Descargar copia</button>'+
     '<p class="eyebrow" style="margin:18px 0 6px">O COPIA ESTE TEXTO</p>'+
@@ -790,13 +819,12 @@ function vistaDatos(){
 /* =====================================================================
    5. RENDER Y ACCIONES
    ===================================================================== */
-const TABS=[["semana","Semana"],["sesion","Sesión"],["volumen","Volumen"],
-            ["marcas","Marcas"],["peso","Peso"],["datos","Datos"]];
+const TABS=[["semana","Semana"],["sesion","Sesión"],["marcas","Marcas"],["peso","Peso"],["datos","Datos"]];
 function render(){
   cabecera();
   let h=S.aviso?'<div class="tarjeta" style="border-color:var(--ambar)"><span class="mono" style="font-size:12px;color:var(--ambar)">'+esc(S.aviso)+'</span></div>':"";
   h+=S.tab==="semana"?vistaSemana():S.tab==="sesion"?vistaSesion():
-     S.tab==="volumen"?vistaVolumen():S.tab==="marcas"?vistaMarcas():
+     S.tab==="marcas"?vistaMarcas():
      S.tab==="peso"?vistaPeso():vistaDatos();
   document.getElementById("vista").innerHTML=h;
   document.getElementById("nav").innerHTML=TABS.map(t=>
@@ -838,7 +866,6 @@ function guardarSesion(){
   const fecha=new Date(f&&f.value?f.value:b.fecha).toISOString();
   S.sesiones=[{id:Date.now(),fecha:fecha,diaNombre:b.diaNombre,ejercicios:hechos,cardioMin:car}]
     .concat(S.sesiones).sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
-  if(!S.inicioBloque) S.inicioBloque=fecha;
   S.borrador=null; S.aviso=""; S.tab="marcas"; S.subtab="historico"; guardar(); render();
 }
 function guardarPeso(){
@@ -869,23 +896,52 @@ function restaurar(){
     const d=JSON.parse(document.getElementById("pegado").value);
     if(!Array.isArray(d.sesiones)) throw new Error();
     S.sesiones=d.sesiones; S.pesos=d.pesos||[]; S.dias=d.dias||4;
-    S.inicioBloque=d.inicioBloque||null; S.aviso="Datos restaurados."; guardar();
+    S.inicioBloque=normInicio(d.inicioBloque);
+    S.records=Array.isArray(d.records)?normRecords(d.records):migrarRecords(S.sesiones);
+    S.aviso="Datos restaurados."; guardar();
   }catch(e){ S.aviso="Ese texto no es una copia válida."; }
   render();
 }
+function addRecord(){
+  const ej=document.getElementById("r_ej").value;
+  const peso=parseFloat(document.getElementById("r_peso").value.replace(",","."));
+  const reps=parseInt(document.getElementById("r_reps").value,10);
+  if(!ej||isNaN(peso)||peso<0||!(reps>0)){ S.aviso="Elige ejercicio y rellena peso y repeticiones."; render(); return; }
+  const ex=S.records.find(r=>r.ejercicioId===ej&&r.reps===reps);
+  if(ex) ex.peso=peso;
+  else S.records.push({id:Math.max(0,...S.records.map(r=>r.id))+1,ejercicioId:ej,reps:reps,peso:peso});
+  S.aviso=""; guardar(); render();
+}
 document.addEventListener("click",ev=>{
+  const sv=ev.target.closest&&ev.target.closest("svg.graf");
+  if(sv&&GP.length){
+    const r=sv.getBoundingClientRect(), x=(ev.clientX-r.left)/r.width*340;
+    let best=0; GP.forEach((v,i)=>{ if(Math.abs(v-x)<Math.abs(GP[best]-x)) best=i; });
+    S.punto=best; document.getElementById("grafbox").innerHTML=grafica(S.metrica); return;
+  }
   const el=ev.target.closest("[data-a]"); if(!el) return;
   const a=el.dataset.a, v=el.dataset.v;
-  if(a==="tab"){ S.tab=v; S.aviso=""; S.editando=null; render(); }
+  if(a==="tab"){ S.tab=v; S.aviso=""; S.editando=null; S.punto=null; render(); }
   else if(a==="subtab"){ S.subtab=v; render(); }
-  else if(a==="metrica"){ S.metrica=v; render(); }
+  else if(a==="metrica"){ S.metrica=v; S.punto=null; render(); }
+  else if(a==="inicioAuto"){ S.inicioBloque=null; S.aviso="Inicio automático: primera sesión guardada."; guardar(); render(); }
+  else if(a==="addRec"){ addRecord(); }
+  else if(a==="delRec"){
+    if(!confirm("¿Borrar este récord?")) return;
+    S.records=S.records.filter(r=>String(r.id)!==v); guardar(); render();
+  }
+  else if(a==="guardarInicio"){
+    const val=document.getElementById("inicio_bloque").value;
+    S.inicioBloque=val||null;
+    S.aviso="Fecha de inicio guardada."; guardar(); render();
+  }
   else if(a==="dias"){ S.dias=+v; guardar(); render(); }
   else if(a==="abrir"){
     const b=bloque(), pl=plantillaDe(), plan=repartir(pl,b.semana,S.dias);
     const dia=pl.dias[+v];
-    const res=proponer(plan[+v],dia,S.sesiones,calcularRecords(S.sesiones));
+    const res=proponer(plan[+v],dia,S.sesiones,S.records);
     S.borrador={fecha:ahoraLocal(),diaNombre:dia.nombre,int:dia.int,conCardio:!!dia.conCardio,
-      cardioMin:MIN_CARDIO,cardioHecho:false,ejercicios:res.lista,recortado:res.recortado};
+      cardioMin:cardioDe(dia)||MIN_CARDIO,cardioHecho:false,ejercicios:res.lista,recortado:res.recortado};
     S.tab="sesion"; render();
   }
   else if(a==="check"){
@@ -904,7 +960,7 @@ document.addEventListener("click",ev=>{
     const nota=notacionDe(m,n,S.borrador.int);
     S.borrador.ejercicios[i]={hueco:m.h,ejercicioId:v,motivo:"elegido por ti",
       notacion:nota.txt,peso:"",hecho:false,series:[],
-      sugerido:pesoSugerido(v,nota.reps,calcularRecords(S.sesiones),S.borrador.int)};
+      sugerido:pesoSugerido(v,nota.reps,S.records,S.borrador.int)};
     cerrarModal(); render();
   }
   else if(a==="guardarSesion"){ guardarSesion(); }
@@ -917,10 +973,18 @@ document.addEventListener("click",ev=>{
   else if(a==="exportar"){ exportar(); }
   else if(a==="restaurar"){ restaurar(); }
   else if(a==="nuevoBloque"){
-    S.inicioBloque=new Date().toISOString();
+    S.inicioBloque=claveFecha(lunesDe(new Date()));
     S.aviso="Bloque nuevo empezado."; guardar(); S.tab="semana"; render();
   }
   else if(a==="cerrarSesion"){ cerrarSesion(); }
+});
+document.addEventListener("change",ev=>{
+  const el=ev.target; if(!el.dataset||!el.dataset.rec) return;
+  const r=S.records.find(x=>String(x.id)===el.dataset.id); if(!r) return;
+  const v=parseFloat(String(el.value).replace(",","."));
+  if(el.dataset.rec==="peso"){ if(isNaN(v)||v<0){ el.value=r.peso; return; } r.peso=v; el.value=v; }
+  else{ const n=Math.round(v); if(isNaN(n)||n<1){ el.value=r.reps; return; } r.reps=n; el.value=n; }
+  guardar();
 });
 document.addEventListener("input",ev=>{
   const el=ev.target;
